@@ -52,3 +52,4 @@ jobs:
           else
             echo "⚠️  Frontend response: $RESPONSE_CODE"
           fi
+
