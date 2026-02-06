@@ -43,7 +43,7 @@ jobs:
       - name: 🎨 Ping Frontend Service
         run: |
           echo "=== Pinging Frontend ==="
-          FRONTEND_URL="https://spotter-frontend-1.onrender.com/"
+          FRONTEND_URL="https://spotter-frontend-1.onrender.com/profile"
           
           RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -m 15 "$FRONTEND_URL" || echo "000")
           
