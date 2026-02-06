@@ -1,43 +1,45 @@
-name: 🚀 Keep Render Alive
+name: 🚀 Keep Render Alive FIXED
 
 on:
   schedule:
-    # Запускать каждые 14 минут
-    # Это идеально: Render спит после 15 минут неактивности
-    - cron: '*/14 * * * *'
+    # Увеличиваем частоту для надежности
+    - cron: '*/5 * * * *'
   
-  # Позволяет запускать вручную из интерфейса
   workflow_dispatch:
 
 jobs:
   ping-services:
     runs-on: ubuntu-latest
+    timeout-minutes: 2
     
     steps:
-      # Шаг 1: Пингуем бэкенд (API)
+      # Шаг 1: Пингуем бэкенд (API) - БЕЗ exit 0!
       - name: 🔍 Ping Backend Service
         run: |
           echo "=== Pinging Backend ==="
           BACKEND_URL="https://spotter-backend-zxsj.onrender.com"
+          BACKEND_STATUS="unknown"
           
-          # Делаем 3 попытки на случай временных проблем
+          # Делаем 3 попытки
           for attempt in {1..3}; do
             echo "Attempt $attempt..."
-            RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -m 15 "$BACKEND_URL/api/health" || echo "000")
+            RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -m 20 "$BACKEND_URL/api/health" || echo "000")
             
             if [ "$RESPONSE_CODE" -eq 200 ]; then
               echo "✅ Backend is ALIVE! Response code: $RESPONSE_CODE"
-              exit 0
+              BACKEND_STATUS="alive"
+              break  # Выходим из цикла, но не из всего шага!
             else
               echo "⚠️  Backend response: $RESPONSE_CODE"
               if [ $attempt -lt 3 ]; then
-                sleep 5  # Ждем 5 секунд перед следующей попыткой
+                sleep 3
               fi
             fi
           done
           
-          echo "❌ Backend might be DOWN after 3 attempts"
-          # Здесь можно добавить уведомление (Telegram, Discord и т.д.)
+          if [ "$BACKEND_STATUS" != "alive" ]; then
+            echo "❌ Backend might be DOWN after 3 attempts"
+          fi
 
       # Шаг 2: Пингуем фронтенд
       - name: 🎨 Ping Frontend Service
@@ -45,11 +47,17 @@ jobs:
           echo "=== Pinging Frontend ==="
           FRONTEND_URL="https://spotter-frontend-1.onrender.com"
           
-          RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -m 15 "$FRONTEND_URL" || echo "000")
+          RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -m 20 "$FRONTEND_URL" || echo "000")
           
-          if [ "$RESPONSE_CODE" -eq 200 ] || [ "$RESPONSE_CODE" -eq 304 ] || [ "$RESPONSE_CODE" -eq 302 ]; then
+          if [ "$RESPONSE_CODE" -eq 200 ] || [ "$RESPONSE_CODE" -eq 304 ] || [ "$RESPONSE_CODE" -eq 302 ] || [ "$RESPONSE_CODE" -eq 301 ]; then
             echo "✅ Frontend is ALIVE! Response code: $RESPONSE_CODE"
           else
             echo "⚠️  Frontend response: $RESPONSE_CODE"
           fi
-
+          
+      # Шаг 3: Логируем завершение
+      - name: 📊 Log Completion
+        run: |
+          echo "================================="
+          echo "✅ Keep-alive cycle completed at: $(date -u '+%H:%M:%S UTC')"
+          echo "Next run in ~5 minutes"
